@@ -18,6 +18,10 @@
  */
 package peasy;
 
+
+import java.util.Timer;
+import java.util.TimerTask;
+
 import peasy.org.apache.commons.math.geometry.CardanEulerSingularityException;
 import peasy.org.apache.commons.math.geometry.Rotation;
 import peasy.org.apache.commons.math.geometry.RotationOrder;
@@ -27,10 +31,11 @@ import processing.core.PConstants;
 import processing.core.PGraphics;
 import processing.event.KeyEvent;
 import processing.event.MouseEvent;
+import processing.event.TouchEvent;
 import processing.opengl.PGraphicsOpenGL;
 
 /**
- * 
+ *
  * @author Jonathan Feinberg
  * @author Thomas Diewald
  * 
@@ -114,7 +119,7 @@ public class PeasyCam {
 	}
 
 	public PeasyCam(final PApplet parent, final double lookAtX, final double lookAtY,
-			final double lookAtZ, final double distance) {
+					final double lookAtZ, final double distance) {
 		this(parent, parent.g, lookAtX, lookAtY, lookAtZ, distance);
 	}
 
@@ -123,7 +128,7 @@ public class PeasyCam {
 	}
 
 	public PeasyCam(final PApplet parent, PGraphics pg, final double lookAtX,
-			final double lookAtY, final double lookAtZ, final double distance) {
+					final double lookAtY, final double lookAtZ, final double distance) {
 		this.p = parent;
 		this.g = pg;
 		this.startCenter = this.center = new Vector3D(lookAtX, lookAtY, lookAtZ);
@@ -191,9 +196,11 @@ public class PeasyCam {
 		if (isActive) {
 			p.registerMethod("mouseEvent", peasyEventListener);
 			p.registerMethod("keyEvent", peasyEventListener);
+			p.registerMethod("touchEvent", peasyEventListener);
 		} else {
 			p.unregisterMethod("mouseEvent", peasyEventListener);
 			p.unregisterMethod("keyEvent", peasyEventListener);
+			p.unregisterMethod("touchEvent", peasyEventListener);
 		}
 	}
 
@@ -312,6 +319,7 @@ public class PeasyCam {
 		}
 
 		public void mouseEvent(final MouseEvent e) {
+
 			switch (e.getAction()) {
 
 			case MouseEvent.PRESS:
@@ -326,21 +334,29 @@ public class PeasyCam {
 				break;
 
 			case MouseEvent.CLICK:
+			//	Log.w("TouchEvent","Mouse Click!!!!!");
+
 				if (insideViewport(p.mouseX, p.mouseY)) {
-					if (resetOnDoubleClick && 2 == (int)e.getCount()) {
+
+
+					if (resetOnDoubleClick && 2 == (int)e.getClickCount()) {
 						reset();
 					}
 				}
 				break;
 
-			case MouseEvent.WHEEL:
-				if (wheelHandler != null && insideViewport(p.mouseX, p.mouseY)) {
-					wheelHandler.handleWheel((int)e.getCount());
-				}
-				break;
+//			case MouseEvent.WHEEL:
+//				if (wheelHandler != null && insideViewport(p.mouseX, p.mouseY)) {
+//					wheelHandler.handleWheel((int)e.getCount());
+//				}
+//				break;
 
 			case MouseEvent.DRAG:
 				if (isActive) {
+
+
+
+
 					final double dx = p.mouseX - p.pmouseX;
 					final double dy = p.mouseY - p.pmouseY;
 
@@ -355,19 +371,104 @@ public class PeasyCam {
 						dragConstraint = null;
 					}
 
-					final int b = p.mouseButton;
-					if (centerDragHandler != null && (b == PConstants.CENTER
-							|| (b == PConstants.LEFT && e.isMetaDown()))) {
-						centerDragHandler.handleDrag(dx, dy);
-					} else if (leftDragHandler != null && b == PConstants.LEFT) {
-						leftDragHandler.handleDrag(dx, dy);
-					} else if (rightDraghandler != null && b == PConstants.RIGHT) {
-						rightDraghandler.handleDrag(dx, dy);
-					}
+
+//					Log.w("MouseEvent", "Dragging.. rightDraghandler");
+					//rightDraghandler.handleDrag(dx, dy);
+					//centerDragHandler.handleDrag(dx, dy);
+					//leftDragHandler.handleDrag(dx, dy);
+
+//					final int b = p.mouseButton;
+//					if (centerDragHandler != null && (b == PConstants.CENTER
+//							|| (b == PConstants.LEFT && e.isMetaDown()))) {
+//						centerDragHandler.handleDrag(dx, dy);
+//					} else if (leftDragHandler != null && b == PConstants.LEFT) {
+//						leftDragHandler.handleDrag(dx, dy);
+//					} else if (rightDraghandler != null && b == PConstants.RIGHT) {
+//						rightDraghandler.handleDrag(dx, dy);
+//					}
 				}
 				break;
 			}
 		}
+
+		float oldx = 0;
+		float oldy = 0;
+
+		float oldTotal = 0;
+
+		float threshold = 200;
+		String doEvent;
+
+
+		Timer timeout = new Timer();
+		long lastTap = 0;
+		public void touchEvent(final TouchEvent te){
+
+
+
+			if (te.getAction() == TouchEvent.START) {
+
+
+				if (p.touches.length == 1) {
+					oldx = p.touches[0].x;
+					oldy = p.touches[0].y;
+				} else if (p.touches.length == 2) {
+					oldTotal = getTotalDistance();
+				}
+
+				long currentTime = System.currentTimeMillis();
+				long tapLength = currentTime - lastTap;
+				if (tapLength < 300 && tapLength > 0 && te.getNumPointers() == 1) {
+					//Log.w("TouchEvent:","RESET");
+					reset();
+				} else {
+					timeout.schedule(new TimerTask() {
+						@Override
+						public void run() {
+							this.cancel();
+						}
+					}, 300);
+					lastTap = System.currentTimeMillis();
+				}
+
+			}
+
+			if (te.getAction() == TouchEvent.MOVE) {
+
+				if ( te.getNumPointers() == 1 &&   p.touches.length == 1 )  {
+
+					float currentx = p.touches[0].x;
+					float currenty = p.touches[0].y;
+
+					final float dx = currentx - oldx;
+					final float dy = currenty - oldy;
+
+					leftDragHandler.handleDrag(dx, dy);
+
+					oldx = currentx;
+					oldy = currenty;
+
+				} else if ( te.getNumPointers() == 2 &&  p.touches.length == 2 )  {
+
+					float currentTotal = getTotalDistance();
+					float totalDx = (currentTotal - oldTotal) * -1;  // inverting the zoom logic
+					//Log.w("TouchEvent:", " currentTotal:" + currentTotal + " oldTotal:" + oldTotal + " total:" + totalDx );
+					rightDraghandler.handleDrag( totalDx, totalDx);
+					oldTotal = currentTotal;
+				}
+			}
+
+
+		}
+
+		private float getTotalDistance() {
+			float distancex = PApplet.abs(p.touches[0].x - p.touches[1].x);
+			float distancey = PApplet.abs(p.touches[0].y - p.touches[1].y);
+
+			return PApplet.sqrt((distancex * distancex) + (distancey * distancey));
+		}
+
+
 	}
 
 	private void mouseZoom(final double delta) {

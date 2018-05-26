@@ -32,16 +32,16 @@ public class CameraState implements Serializable {
 	final double distance;
 
 	public CameraState(final Rotation rotation, final Vector3D center,
-			final double distance) {
+					   final double distance) {
 		this.rotation = rotation;
 		this.center = center;
 		this.distance = distance;
 	}
 
 	public void apply(final PApplet a) {
-		if (a.recorder != null) {
-			apply(a.recorder);
-		}
+//		if (a.recorder != null) {
+//			apply(a.recorder);
+//		}
 		apply(a.g);
 	}
 
